@@ -1,8 +1,29 @@
 import app from "./client.js";
 import { getCDraqula, saveState } from "./datahandler.js";
 const lraj23UserId = "U0947SL6AKB";
+const lraj23BotTestingId = "C09GR27104V";
+const msgIsNum = msg => parseInt(msg.split(" - ")[0]).toString() === msg.split(" - ")[0];
 
-app.message("", async ({ }) => { });
+app.message("", async ({ message: { text, channel, ts } }) => {
+	if (channel !== lraj23BotTestingId) return;
+	let CDraqula = getCDraqula();
+	const react = async (name, timestamp) => await app.client.reactions.add({ channel, name, timestamp });
+	if (!msgIsNum(text)) {
+		console.log("not a number!");
+		return await react("very-mad", ts);
+	}
+	const counted = parseInt(text.split(" - ")[0]);
+	if (counted === CDraqula.next) {
+		console.log("correct!");
+		CDraqula.next++;
+		await react("white_check_mark", ts);
+	} else {
+		console.log("wrong...");
+		await react("bangbang", ts);
+	}
+	console.log(counted, CDraqula.next);
+	saveState(CDraqula);
+});
 
 app.action(/^ignore-.+$/, async ({ ack }) => await ack());
 
