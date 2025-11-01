@@ -70,11 +70,103 @@ app.message("", async ({ message: { text, user, channel, ts } }) => {
 	saveState(CDraqula);
 });
 
+app.command("/cdraqula-set-number", async ({ ack, body: { user_id }, respond }) => {
+	await ack();
+	let CDraqula = getCDraqula();
+	saveState(CDraqula);
+	await respond({
+		text: "Choose a number to set it to:",
+		blocks: [
+			{
+				type: "input",
+				element: {
+					type: "plain_text_input",
+					action_id: "ignore-override",
+					placeholder: {
+						type: "plain_text",
+						text: "The NEXT number to start counting"
+					}
+				},
+				label: {
+					type: "plain_text",
+					text: "Choose a number to set the counting to:",
+					emoji: true
+				},
+				optional: false
+			},
+			{
+				type: "actions",
+				elements: [
+					{
+						type: "button",
+						text: {
+							type: "plain_text",
+							text: ":x: Cancel",
+							emoji: true
+						},
+						value: "cancel",
+						action_id: "cancel"
+					},
+					{
+						type: "button",
+						text: {
+							type: "plain_text",
+							text: ":white_check_mark: Go!",
+							emoji: true
+						},
+						value: "confirm",
+						action_id: "confirm"
+					}
+				]
+			}
+		]
+	});
+});
+
 app.action(/^ignore-.+$/, async ({ ack }) => await ack());
 
 app.action("cancel", async ({ ack, respond }) => [await ack(), await respond({ delete_original: true })]);
 
-app.action("confirm", async ({ }) => { });
+app.action("confirm", async ({ ack, respond, body: { state: { values }, user: { id: uId }, channel: { id: cId } } }) => {
+	await ack();
+	console.log(values);
+	let CDraqula = getCDraqula();
+	let override = Object.entries(values).find(info => info[1]["ignore-override"])[1]["ignore-override"].value;
+	const warn = async msg => await app.client.chat.postEphemeral({
+		channel: cId,
+		user: uId,
+		text: msg,
+		blocks: [
+			{
+				type: "section",
+				text: {
+					type: "mrkdwn",
+					text: msg
+				},
+				accessory: {
+					type: "button",
+					text: {
+						type: "plain_text",
+						text: "Close"
+					},
+					action_id: "cancel"
+				}
+			}
+		],
+	});
+
+	if (override !== parseInt(override).toString()) return await warn("Enter, precisely, a whole number.");
+	override = parseInt(override);
+	if (override <= 0) return await warn("Really? You have to restart at at least 1.");
+	CDraqula.next = override;
+
+	await respond("Success! Continue counting from " + override + "...");
+	await app.client.chat.postMessage({
+		channel: cId,
+		text: "The next number was overriden by <@" + uId + ">! Continue counting with " + override + "..."
+	});
+	saveState(CDraqula);
+});
 
 app.command("/cdraqula-help", async ({ ack, respond, payload: { user_id } }) => [await ack(), await respond("This bot helps you count in #counttoamillion and more! _More to be written eventually..._"), user_id === lraj23UserId ? await respond("Test but only for <@" + lraj23UserId + ">. If you aren't him and you see this message, DM him IMMEDIATELY about this!") : null]);
 
