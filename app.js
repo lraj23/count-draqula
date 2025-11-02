@@ -122,13 +122,13 @@ app.action(/^ignore-.+$/, async ({ ack }) => await ack());
 
 app.action("cancel", async ({ ack, respond }) => [await ack(), await respond({ delete_original: true })]);
 
-app.action("confirm", async ({ ack, respond, body: { state: { values }, user: { id: uId }, channel: { id: cId } } }) => {
+app.action("confirm", async ({ ack, respond, body: { state: { values }, user: { id: user }, channel: { id: channel } } }) => {
 	await ack();
 	console.log(values);
 	let CDraqula = getCDraqula();
 	const warn = async msg => await app.client.chat.postEphemeral({
-		channel: cId,
-		user: uId,
+		channel,
+		user,
 		text: msg,
 		blocks: [
 			{
@@ -158,8 +158,8 @@ app.action("confirm", async ({ ack, respond, body: { state: { values }, user: { 
 
 	await respond("Success! Continue counting from " + override + "...");
 	await app.client.chat.postMessage({
-		channel: cId,
-		text: "The next number was overriden by <@" + uId + ">! Continue counting with " + override + "..."
+		channel,
+		text: "The next number was overriden by <@" + user + ">! Continue counting with " + override + "..."
 	});
 	saveState(CDraqula);
 });
@@ -264,7 +264,92 @@ app.command("/cdraqula-admin", async ({ ack, body: { user_id }, respond }) => {
 	});
 });
 
-app.action("add-admin", async ({ ack }) => await ack());
+app.action("add-admin", async ({ ack, respond }) => [await ack(), await respond({
+	text: "Choose someone to make admin:",
+	blocks: [
+		{
+			type: "section",
+			text: {
+				type: "mrkdwn",
+				text: "Choose someone to make admin:"
+			},
+			accessory: {
+				type: "users_select",
+				placeholder: {
+					type: "plain_text",
+					text: "Choose someone",
+					emoji: true
+				},
+				action_id: "ignore-add-admin"
+			}
+		},
+		{
+			type: "actions",
+			elements: [
+				{
+					type: "button",
+					text: {
+						type: "plain_text",
+						text: ":x: Cancel",
+						emoji: true
+					},
+					value: "cancel",
+					action_id: "cancel"
+				},
+				{
+					type: "button",
+					text: {
+						type: "plain_text",
+						text: ":white_check_mark: Go!",
+						emoji: true
+					},
+					value: "confirm",
+					action_id: "confirm-add-admin"
+				}
+			]
+		}
+	]
+})]);
+
+app.action("confirm-add-admin", async ({ ack, body: { user: { id: user }, channel: { id: channel }, state: { values } }, respond }) => {
+	await ack();
+	let CDraqula = getCDraqula();
+	console.log(values);
+	const added = values[Object.keys(values)[0]]["ignore-add-admin"].selected_user;
+	const warn = async msg => await app.client.chat.postEphemeral({
+		channel,
+		user,
+		text: msg,
+		blocks: [
+			{
+				type: "section",
+				text: {
+					type: "mrkdwn",
+					text: msg
+				},
+				accessory: {
+					type: "button",
+					text: {
+						type: "plain_text",
+						text: "Close"
+					},
+					action_id: "cancel"
+				}
+			}
+		],
+	});
+
+	if (added === null) return await warn("Choose someone to make admin!");
+	if (CDraqula.admins.includes(added)) return await warn("<@" + added + "> is already an admin!");
+
+	CDraqula.admins.push(added);
+	await respond("You have made <@" + added + "> an admin.");
+	await app.client.chat.postMessage({
+		channel,
+		text: "<@" + added + "> was made an admin by <@" + user + ">"
+	});
+	saveState(CDraqula);
+});
 
 app.action("remove-admin", async ({ ack }) => await ack());
 
