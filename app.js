@@ -2,11 +2,11 @@ import app from "./client.js";
 import { getCDraqula, saveState } from "./datahandler.js";
 const lraj23UserId = "U0947SL6AKB";
 const lraj23BotTestingId = "C09GR27104V";
-const msgIsNum = msg => (msg ? parseInt(msg.split(" - ")[0]).toString() === msg.split(" - ")[0] : false);
-const numInMsg = msg => msgIsNum(msg) ? parseInt(msg.split(" - ")[0]) : NaN;
+const msgIsNum = msg => (msg ? parseInt(msg.split(" ")[0]).toString() === msg.split(" ")[0] : false);
+const numInMsg = msg => msgIsNum(msg) ? parseInt(msg.split(" ")[0]).toString() : NaN;
 
 app.message("", async ({ message: { text, user, channel, ts } }) => {
-	if (channel !== lraj23BotTestingId) return;
+	if (![lraj23BotTestingId].includes(channel)) return;
 	let CDraqula = getCDraqula();
 	const react = async (name, timestamp) => {
 		try {
@@ -23,8 +23,7 @@ app.message("", async ({ message: { text, user, channel, ts } }) => {
 		}
 	};
 	if (!msgIsNum(text)) {
-		console.log("not a number!");
-		return await react("very-mad", ts);
+		return console.log("not a number!");
 	}
 	const counted = parseInt(text.split(" - ")[0]);
 	if (counted === CDraqula.next) {
