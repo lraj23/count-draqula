@@ -1,7 +1,7 @@
 {
 	"name": "count-draqula",
 	"version": "0.1.0",
-	"description": "Ensure you're counting right in #counttoamillion and more!",
+	"description": "Ensure you're counting right in #counttoamillionnomistakes and more!",
 	"main": "app.js",
 	"type": "module",
 	"scripts": {

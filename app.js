@@ -2,11 +2,12 @@ import app from "./client.js";
 import { getCDraqula, saveState } from "./datahandler.js";
 const lraj23UserId = "U0947SL6AKB";
 const lraj23BotTestingId = "C09GR27104V";
+const countToAMillionNoMistakesId = "CQ8G37TSL";
 const msgIsNum = msg => (msg ? parseInt(msg.split(" ")[0]).toString() === msg.split(" ")[0] : false);
-const numInMsg = msg => msgIsNum(msg) ? parseInt(msg.split(" ")[0]).toString() : NaN;
+const numInMsg = msg => msgIsNum(msg) ? parseInt(msg.split(" ")[0]) : NaN;
 
 app.message("", async ({ message: { text, user, channel, ts } }) => {
-	if (![lraj23BotTestingId].includes(channel)) return;
+	if (![lraj23BotTestingId, countToAMillionNoMistakesId].includes(channel)) return;
 	let CDraqula = getCDraqula();
 	const react = async (name, timestamp) => {
 		try {
@@ -15,55 +16,30 @@ app.message("", async ({ message: { text, user, channel, ts } }) => {
 			console.error(e.data.error);
 		}
 	};
-	const unreact = async (name, timestamp) => {
-		try {
-			await app.client.reactions.remove({ channel, name, timestamp });
-		} catch (e) {
-			console.error(e.data.error);
-		}
-	};
 	if (!msgIsNum(text)) {
 		return console.log("not a number!");
 	}
-	const counted = parseInt(text.split(" - ")[0]);
+	const counted = numInMsg(text);
+	console.log(counted);
 	if (counted === CDraqula.next) {
 		console.log("correct!");
+		if (CDraqula.lastCounted === user) {
+			await react("bangbang", ts);
+			await app.client.chat.postEphemeral({ channel, user, text: "That's the right number, but you can't count twice in a row! Now you have to restart from 1!" });
+			await app.client.chat.postMessage({ channel, text: "<@" + user + "> counted twice in a row! :facepalm: Because of this, we have to restart from 1! Shame on them." });
+			CDraqula.next = 1;
+			return saveState(CDraqula);
+		}
 		CDraqula.next++;
+		CDraqula.lastCounted = user;
 		await react("white_check_mark", ts);
 	} else {
 		console.log("wrong...");
-		let pastMessages = (await app.client.conversations.history({
-			channel,
-			latest: ts,
-			oldest: ts - 20000,
-			limit: 50
-		})).messages.filter(msg => msgIsNum(msg.text));
-		let isCorrect = [true];
-		for (let i = 0; i < pastMessages.length; i++) {
-			if (numInMsg(pastMessages[i].text) + 1 === CDraqula.next) {
-				isCorrect[1] = i;
-				break;
-			}
-			if (numInMsg(pastMessages[i].text) + 1 !== counted - i) {
-				isCorrect[0] = false;
-				break;
-			}
-		}
-		if (counted !== CDraqula.next + isCorrect[1]) isCorrect = [false];
-		if (isCorrect[0]) {
-			for (let i = 0; i < isCorrect[i]; i++) {
-				let msg = pastMessages[i];
-				if (i > isCorrect[1]) return;
-				await react("white_check_mark", msg.ts);
-				await unreact("bangbang", msg.ts);
-				CDraqula.next++;
-			}
-			await react("white_check_mark", ts);
-			CDraqula.next++;
-		} else {
-			await react("bangbang", ts);
-			await app.client.chat.postEphemeral({ channel, user, text: "That's the wrong number... It should be " + CDraqula.next });
-		}
+		await react("bangbang", ts);
+		await app.client.chat.postEphemeral({ channel, user, text: "That's the wrong number... You said " + counted + " when it should've be " + CDraqula.next + ". Now you have to restart from 1!" });
+		await app.client.chat.postMessage({ channel, text: "<@" + user + "> counted the wrong number! :very-mad: They said " + counted + " when they should've said " + CDraqula.next + ". Because of them, we have to restart from 1! Shame on them." });
+		CDraqula.next = 1;
+		CDraqula.lastCounted = user;
 	}
 	console.log(counted, CDraqula.next);
 	saveState(CDraqula);
@@ -486,7 +462,7 @@ app.action("confirm-request-override", async ({ ack, respond, body: { state: { v
 	});
 });
 
-app.command("/cdraqula-help", async ({ ack, respond, payload: { user_id } }) => [await ack(), await respond("This bot helps you count in #counttoamillion and more! _More to be written eventually..._"), user_id === lraj23UserId ? await respond("Test but only for <@" + lraj23UserId + ">. If you aren't him and you see this message, DM him IMMEDIATELY about this!") : null]);
+app.command("/cdraqula-help", async ({ ack, respond, payload: { user_id } }) => [await ack(), await respond("This bot helps you count in #counttoamillionnomistakes and more! _More to be written eventually..._"), user_id === lraj23UserId ? await respond("Test but only for <@" + lraj23UserId + ">. If you aren't him and you see this message, DM him IMMEDIATELY about this!") : null]);
 
 app.message(/secret button/i, async ({ message: { channel, user, thread_ts, ts } }) => await app.client.chat.postEphemeral({
 	channel, user,
