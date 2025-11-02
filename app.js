@@ -351,7 +351,101 @@ app.action("confirm-add-admin", async ({ ack, body: { user: { id: user }, channe
 	saveState(CDraqula);
 });
 
-app.action("remove-admin", async ({ ack }) => await ack());
+app.action("remove-admin", async ({ ack, respond }) => [await ack(), await respond({
+	text: "Choose someone to remove from admin:",
+	blocks: [
+		{
+			type: "section",
+			text: {
+				type: "mrkdwn",
+				text: "Choose someone to remove from admin:"
+			},
+			accessory: {
+				type: "users_select",
+				placeholder: {
+					type: "plain_text",
+					text: "Choose someone",
+					emoji: true
+				},
+				action_id: "ignore-remove-admin"
+			}
+		},
+		{
+			type: "actions",
+			elements: [
+				{
+					type: "button",
+					text: {
+						type: "plain_text",
+						text: ":x: Cancel",
+						emoji: true
+					},
+					value: "cancel",
+					action_id: "cancel"
+				},
+				{
+					type: "button",
+					text: {
+						type: "plain_text",
+						text: ":white_check_mark: Go!",
+						emoji: true
+					},
+					value: "confirm",
+					action_id: "confirm-remove-admin"
+				}
+			]
+		}
+	]
+})]);
+
+app.action("confirm-remove-admin", async ({ ack, body: { user: { id: user }, channel: { id: channel }, state: { values } }, respond }) => {
+	await ack();
+	let CDraqula = getCDraqula();
+	console.log(values);
+	const removed = values[Object.keys(values)[0]]["ignore-remove-admin"].selected_user;
+	const warn = async msg => await app.client.chat.postEphemeral({
+		channel,
+		user,
+		text: msg,
+		blocks: [
+			{
+				type: "section",
+				text: {
+					type: "mrkdwn",
+					text: msg
+				},
+				accessory: {
+					type: "button",
+					text: {
+						type: "plain_text",
+						text: "Close"
+					},
+					action_id: "cancel"
+				}
+			}
+		],
+	});
+
+	if (removed === null) return await warn("Choose someone to remove from admin!");
+	if (!CDraqula.admins.includes(removed)) return await warn("<@" + removed + "> isn't an admin!");
+	if (removed === lraj23UserId) {
+		if (user !== lraj23UserId) CDraqula.admins.splice(CDraqula.admins.indexOf(user), 1);
+		warn("You can't remove <@" + lraj23UserId + "> from admin! Shame on you! For that, you lose your admin!");
+		app.client.chat.postMessage({
+			channel,
+			text: "<@" + user + ">, an admin, tried to remove <@" + lraj23UserId + "> from admin! Shame on them!"
+		});
+		return saveState(CDraqula);
+	}
+
+	CDraqula.admins.splice(CDraqula.admins.indexOf(removed), 1);
+	await respond("You have removed <@" + removed + "> from admin.");
+	await app.client.chat.postMessage({
+		channel,
+		text: "<@" + removed + "> was removed from admin by <@" + user + ">"
+	});
+	saveState(CDraqula);
+});
 
 app.action("confirm-request-override", async ({ ack, respond, body: { state: { values }, user: { id: uId }, channel: { id: cId } } }) => {
 	await ack();
