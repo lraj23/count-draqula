@@ -222,7 +222,7 @@ app.command("/cdraqula-admin", async ({ ack, body: { user_id }, respond }) => {
 				type: "input",
 				element: {
 					type: "plain_text_input",
-					action_id: "ignore-override",
+					action_id: "ignore-request-override",
 					placeholder: {
 						type: "plain_text",
 						text: "The NEXT number to start counting"
@@ -268,7 +268,45 @@ app.action("add-admin", async ({ ack }) => await ack());
 
 app.action("remove-admin", async ({ ack }) => await ack());
 
-app.action("confirm-request-override", async ({ ack }) => await ack());
+app.action("confirm-request-override", async ({ ack, respond, body: { state: { values }, user: { id: uId }, channel: { id: cId } } }) => {
+	await ack();
+	console.log(values);
+	const CDraqula = getCDraqula();
+	const warn = async msg => await app.client.chat.postEphemeral({
+		channel: cId,
+		user: uId,
+		text: msg,
+		blocks: [
+			{
+				type: "section",
+				text: {
+					type: "mrkdwn",
+					text: msg
+				},
+				accessory: {
+					type: "button",
+					text: {
+						type: "plain_text",
+						text: "Close"
+					},
+					action_id: "cancel"
+				}
+			}
+		],
+	});
+	if (Object.entries(values).length === 0) return await warn("Enter a whole number!!");
+	let override = Object.entries(values).find(info => info[1]["ignore-request-override"])[1]["ignore-request-override"].value;
+
+	if (override !== parseInt(override).toString()) return await warn("Enter, precisely, a whole number.");
+	override = parseInt(override);
+	if (override <= 0) return await warn("Really? You have to restart at at least 1.");
+
+	await respond("Success! All the admins have been pinged.");
+	await app.client.chat.postMessage({
+		channel: cId,
+		text: "<@" + uId + "> has requested the admins (" + CDraqula.admins.map(admin => "<@" + admin + ">").join(", ") + ") to override the number to " + override + ".",
+	});
+});
 
 app.command("/cdraqula-help", async ({ ack, respond, payload: { user_id } }) => [await ack(), await respond("This bot helps you count in #counttoamillion and more! _More to be written eventually..._"), user_id === lraj23UserId ? await respond("Test but only for <@" + lraj23UserId + ">. If you aren't him and you see this message, DM him IMMEDIATELY about this!") : null]);
 
