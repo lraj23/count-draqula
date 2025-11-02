@@ -607,6 +607,97 @@ app.action("confirm-request-override", async ({ ack, respond, body: { state: { v
 	});
 });
 
+app.command("/cdraqula-shop", async ({ ack, respond, payload: { user_id } }) => {
+	await ack();
+	const CDraqula = getCDraqula();
+	if (user_id !== lraj23UserId) return await respond("Sorry, this is still in development...");
+	if (!CDraqula.coins[user_id]) CDraqula.coins[user_id] = 0;
+	const shopItems = Object.entries({
+		"jumpscare": ["Jumpscare someone :rubbinghands:", 3],
+		"test": ["Test item!", 0],
+		"admin-privileges": ["Become an admin :adminabooz:", 5]
+	});
+	let coins = CDraqula.coins[user_id];
+	await respond({
+		text: "Choose what you want to buy:",
+		blocks: [
+			{
+				type: "section",
+				text: {
+					type: "mrkdwn",
+					text: "*Choose what items you want to buy* (you have " + CDraqula.coins[user_id] + " :count-draqula:):"
+				}
+			},
+			{
+				type: "divider"
+			},
+			...(shopItems.map(shopItem => [
+				{
+					type: "section",
+					text: {
+						type: "plain_text",
+						text: shopItem[1][1] + " :count-draqula: - " + shopItem[1][0] + " (0 in cart)"
+					}
+				},
+				{
+					type: "actions",
+					elements: [
+						{
+							type: "button",
+							text: {
+								type: "plain_text",
+								text: ":heavy_plus_sign: Add to cart",
+								emoji: true
+							},
+							value: "increase-to-cart-" + shopItem[0],
+							action_id: "increase-to-cart-" + shopItem[0]
+						}
+					]
+				},
+				{
+					type: "divider"
+				}
+			]).flat()),
+			{
+				type: "section",
+				text: {
+					type: "mrkdwn",
+					text: "Total Cost: 0 :count-draqula:"
+				}
+			},
+			{
+				type: "actions",
+				elements: [
+					{
+						type: "button",
+						text: {
+							type: "plain_text",
+							text: ":x: Cancel",
+							emoji: true
+						},
+						value: "cancel",
+						action_id: "cancel"
+					},
+					{
+						type: "button",
+						text: {
+							type: "plain_text",
+							text: ":moneybag: Buy!",
+							emoji: true
+						},
+						value: "confirm",
+						action_id: "confirm-buy-items"
+					}
+				]
+			}
+		]
+	});
+});
+
+app.action(/^increase-to-cart-.+$/, async ({ ack }) => await ack());
+
+app.action("confirm-buy-items", async ({ ack }) => await ack());
+
 app.command("/cdraqula-help", async ({ ack, respond, payload: { user_id } }) => [await ack(), await respond("This bot helps you count in #counttoamillionnomistakes and more! _More to be written eventually..._"), user_id === lraj23UserId ? await respond("Test but only for <@" + lraj23UserId + ">. If you aren't him and you see this message, DM him IMMEDIATELY about this!") : null]);
 
 app.message(/secret button/i, async ({ message: { channel, user, thread_ts, ts } }) => await app.client.chat.postEphemeral({
