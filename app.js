@@ -7,7 +7,7 @@ const msgIsNum = msg => (msg ? parseInt(msg.split(" ")[0]).toString() === msg.sp
 const numInMsg = msg => msgIsNum(msg) ? parseInt(msg.split(" ")[0]) : NaN;
 
 app.message("", async ({ message: { text, user, channel, ts } }) => {
-	if (![lraj23BotTestingId, countToAMillionNoMistakesId].includes(channel)) return;
+	if (![lraj23BotTestingId].includes(channel)) return;
 	let CDraqula = getCDraqula();
 	const react = async (name, timestamp) => {
 		try {
@@ -20,7 +20,6 @@ app.message("", async ({ message: { text, user, channel, ts } }) => {
 		return console.log("not a number!");
 	}
 	const counted = numInMsg(text);
-	console.log(counted);
 	if (counted === CDraqula.next) {
 		console.log("correct!");
 		if (CDraqula.lastCounted === user) {
@@ -33,6 +32,13 @@ app.message("", async ({ message: { text, user, channel, ts } }) => {
 		CDraqula.next++;
 		CDraqula.lastCounted = user;
 		await react("white_check_mark", ts);
+		const curJumpscare = CDraqula.jumpscares.find(jumpscare => jumpscare[0] === user);
+		if (curJumpscare) {
+			console.log("jumpscare");
+			await react("fear", ts);
+			await app.client.chat.postEphemeral({ channel, user, text: "You were jumpscared by <@" + curJumpscare[1] + ">! :tan-jumpscare: Let's hope that doesn't happen to you again lol" });
+			CDraqula.jumpscares.splice(CDraqula.jumpscares.indexOf(curJumpscare), 1);
+		}
 	} else {
 		console.log("wrong...");
 		await react("bangbang", ts);
@@ -167,6 +173,14 @@ app.command("/cdraqula-admin", async ({ ack, body: { user_id }, respond }) => {
 						type: "button",
 						text: {
 							type: "plain_text",
+							text: ":rubbinghands: Jumpscare someone"
+						},
+						action_id: "jumpscare"
+					},
+					{
+						type: "button",
+						text: {
+							type: "plain_text",
 							text: ":heavy_plus_sign: Add admin"
 						},
 						action_id: "add-admin"
@@ -237,6 +251,137 @@ app.command("/cdraqula-admin", async ({ ack, body: { user_id }, respond }) => {
 			}
 		]
 	});
+});
+
+app.action("jumpscare", async ({ ack, body: { user: { id } }, respond }) => {
+	await ack();
+	let CDraqula = getCDraqula();
+	const alreadyJumpscare = CDraqula.jumpscares.find(jumpscare => jumpscare[1] === id);
+	await respond(alreadyJumpscare ? {
+		text: "You can't jumpscare someone right now, since you are already jumpscaring <@" + alreadyJumpscare[0] + ">... However, you can cancel this jumpscare!",
+		blocks: [
+			{
+				type: "section",
+				text: {
+					type: "mrkdwn",
+					text: "You can't jumpscare someone right now, since you are already jumpscaring <@" + alreadyJumpscare[0] + ">... However, you can cancel this jumpscare!"
+				}
+			},
+			{
+				type: "actions",
+				elements: [
+					{
+						type: "button",
+						text: {
+							type: "plain_text",
+							text: ":x: Cancel"
+						},
+						value: "cancel",
+						action_id: "cancel"
+					},
+					{
+						type: "button",
+						text: {
+							type: "plain_text",
+							text: ":fear: Cancel Jumpscare"
+						},
+						value: "confirm",
+						action_id: "confirm-cancel-jumpscare"
+					}
+				]
+			}
+		]
+	} : {
+		text: "Choose someone to jumpscare: :tan-jumpscare:",
+		blocks: [
+			{
+				type: "section",
+				text: {
+					type: "mrkdwn",
+					text: "Choose someone to jumpscare: :tan-jumpscare:"
+				},
+				accessory: {
+					type: "users_select",
+					placeholder: {
+						type: "plain_text",
+						text: "Choose someone",
+						emoji: true
+					},
+					action_id: "ignore-jumpscare"
+				}
+			},
+			{
+				type: "actions",
+				elements: [
+					{
+						type: "button",
+						text: {
+							type: "plain_text",
+							text: ":x: Cancel"
+						},
+						value: "cancel",
+						action_id: "cancel"
+					},
+					{
+						type: "button",
+						text: {
+							type: "plain_text",
+							text: ":tan-jumpscare: Jumpscare"
+						},
+						value: "confirm",
+						action_id: "confirm-jumpscare"
+					}
+				]
+			}
+		]
+	});
+});
+
+app.action("confirm-cancel-jumpscare", async ({ ack, body: { user: { id } }, respond }) => {
+	await ack();
+	let CDraqula = getCDraqula();
+	const alreadyJumpscare = CDraqula.jumpscares.find(jumpscare => jumpscare[1] === id);
+	if (!alreadyJumpscare) return await respond("You don't have a pending jumpscare...");
+	await respond("The next time <@" + alreadyJumpscare[0] + "> counts, you will no longer jumpscare them! :tan-jumpscare:");
+	CDraqula.jumpscares.splice(CDraqula.jumpscares.indexOf(alreadyJumpscare), 1);
+	saveState(CDraqula);
+});
+
+app.action("confirm-jumpscare", async ({ ack, body: { user: { id: user }, channel: { id: channel }, state: { values } }, respond }) => {
+	await ack();
+	let CDraqula = getCDraqula();
+	console.log(values);
+	const warn = async msg => await app.client.chat.postEphemeral({
+		channel,
+		user,
+		text: msg,
+		blocks: [
+			{
+				type: "section",
+				text: {
+					type: "mrkdwn",
+					text: msg
+				},
+				accessory: {
+					type: "button",
+					text: {
+						type: "plain_text",
+						text: "Close"
+					},
+					action_id: "cancel"
+				}
+			}
+		]
+	});
+	if (Object.entries(values).length === 0) return await warn("Choose someone to jumpscare!");
+	const jumpscared = values[Object.keys(values)[0]]["ignore-jumpscare"].selected_user;
+
+	if (jumpscared === user) return await warn("Really? You can't jumpscare yourself!");
+	if (CDraqula.jumpscares.find(jumpscare => jumpscare[0] === jumpscared)) return await warn("Someone is already going to jumpscare them :hehehe:");
+
+	CDraqula.jumpscares.push([jumpscared, user]);
+	await respond("Success! The next time <@" + jumpscared + "> counts correctly, they will get jumpscared :hehehe:.");
+	saveState(CDraqula);
 });
 
 app.action("add-admin", async ({ ack, respond }) => [await ack(), await respond({
@@ -311,7 +456,7 @@ app.action("confirm-add-admin", async ({ ack, body: { user: { id: user }, channe
 					action_id: "cancel"
 				}
 			}
-		],
+		]
 	});
 
 	if (added === null) return await warn("Choose someone to make admin!");
