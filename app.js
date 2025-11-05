@@ -36,7 +36,25 @@ app.message("", async ({ message: { text, user, channel, ts } }) => {
 		if (curJumpscare) {
 			console.log("jumpscare");
 			await react("fear", ts);
-			await app.client.chat.postEphemeral({ channel, user, text: "You were jumpscared by <@" + curJumpscare[1] + ">! :tan-jumpscare: Let's hope that doesn't happen to you again lol" });
+			await app.client.chat.postEphemeral({
+				channel,
+				user,
+				text: "You were jumpscared by <@" + curJumpscare[1] + ">! :tan-jumpscare: Let's hope that doesn't happen to you again lol",
+				blocks: [
+					{
+						type: "image",
+						image_url: "https://i.redd.it/go7ir6novo8f1.gif",
+						alt_text: "jumpscare.gif"
+					},
+					{
+						type: "section",
+						text: {
+							type: "mrkdwn",
+							text: "You were jumpscared by <@" + curJumpscare[1] + ">! :tan-jumpscare: Let's hope that doesn't happen to you again lol"
+						}
+					}
+				]
+			});
 			CDraqula.jumpscares.splice(CDraqula.jumpscares.indexOf(curJumpscare), 1);
 		}
 	} else {
@@ -699,17 +717,17 @@ app.action(/^increase-to-cart-.+$/, async ({ ack, body: { user: { id: user }, ch
 	await ack();
 	let CDraqula = getCDraqula();
 	const item = action_id.slice(17);
-	console.log(item);
-	if (!CDraqula.coins[user]) CDraqula.coins[user] = 0;
-	if (!CDraqula.shopping[user]) CDraqula.shopping[user] = {};
-	if (!CDraqula.shopping[user][item]) CDraqula.shopping[user][item] = 0;
-	CDraqula.shopping[user][item]++;
-
 	const shopItems = Object.entries({
 		jumpscare: ["Jumpscare someone :rubbinghands:", 3],
 		test: ["Test item!", 0],
 		"admin-privileges": ["Become an admin :adminabooz:", 5]
 	});
+	console.log(item);
+	if (!CDraqula.coins[user]) CDraqula.coins[user] = 0;
+	if (!CDraqula.shopping[user]) CDraqula.shopping[user] = Object.fromEntries(shopItems.map(item => [item[0], 0]));
+	if (!CDraqula.shopping[user][item]) CDraqula.shopping[user][item] = 0;
+	CDraqula.shopping[user][item]++;
+
 	await respond({
 		channel,
 		text: "Continue shopping or buy now:",
@@ -734,7 +752,7 @@ app.action(/^increase-to-cart-.+$/, async ({ ack, body: { user: { id: user }, ch
 				},
 				{
 					type: "actions",
-					elements: [
+					elements: ((CDraqula.shopping[user][shopItem[0]] || 0) > 0 ? [
 						{
 							type: "button",
 							text: {
@@ -755,7 +773,18 @@ app.action(/^increase-to-cart-.+$/, async ({ ack, body: { user: { id: user }, ch
 							value: "increase-to-cart-" + shopItem[0],
 							action_id: "increase-to-cart-" + shopItem[0]
 						},
-					]
+					] : [
+						{
+							type: "button",
+							text: {
+								type: "plain_text",
+								text: ":heavy_plus_sign: Add to cart",
+								emoji: true
+							},
+							value: "increase-to-cart-" + shopItem[0],
+							action_id: "increase-to-cart-" + shopItem[0]
+						}
+					])
 				},
 				{
 					type: "divider"
@@ -798,7 +827,119 @@ app.action(/^increase-to-cart-.+$/, async ({ ack, body: { user: { id: user }, ch
 	saveState(CDraqula);
 });
 
-app.action(/^decrease-from-cart-.+$/, async ({ ack }) => await ack());
+app.action(/^decrease-from-cart-.+$/, async ({ ack, body: { user: { id: user }, channel: { id: channel } }, respond, action: { action_id } }) => {
+	await ack();
+	let CDraqula = getCDraqula();
+	const item = action_id.slice(19);
+	const shopItems = Object.entries({
+		jumpscare: ["Jumpscare someone :rubbinghands:", 3],
+		test: ["Test item!", 0],
+		"admin-privileges": ["Become an admin :adminabooz:", 5]
+	});
+	console.log(item);
+	if (!CDraqula.coins[user]) CDraqula.coins[user] = 0;
+	if (!CDraqula.shopping[user]) CDraqula.shopping[user] = Object.fromEntries(shopItems.map(item => [item[0], 0]));
+	if (!CDraqula.shopping[user][item]) CDraqula.shopping[user][item] = 0;
+	CDraqula.shopping[user][item]--;
+
+	await respond({
+		channel,
+		text: "Continue shopping or buy now:",
+		blocks: [
+			{
+				type: "section",
+				text: {
+					type: "mrkdwn",
+					text: "*Continue shopping or buy now* (you have " + CDraqula.coins[user] + " :count-draqula:):"
+				}
+			},
+			{
+				type: "divider"
+			},
+			...(shopItems.map(shopItem => [
+				{
+					type: "section",
+					text: {
+						type: "plain_text",
+						text: shopItem[1][1] + " :count-draqula: - " + shopItem[1][0] + " (" + (CDraqula.shopping[user][shopItem[0]] || 0) + " in cart)"
+					}
+				},
+				{
+					type: "actions",
+					elements: ((CDraqula.shopping[user][shopItem[0]] || 0) > 0 ? [
+						{
+							type: "button",
+							text: {
+								type: "plain_text",
+								text: ":heavy_minus_sign: Remove from cart",
+								emoji: true
+							},
+							value: "decrease-from-cart-" + shopItem[0],
+							action_id: "decrease-from-cart-" + shopItem[0]
+						},
+						{
+							type: "button",
+							text: {
+								type: "plain_text",
+								text: ":heavy_plus_sign: Add to cart",
+								emoji: true
+							},
+							value: "increase-to-cart-" + shopItem[0],
+							action_id: "increase-to-cart-" + shopItem[0]
+						},
+					] : [
+						{
+							type: "button",
+							text: {
+								type: "plain_text",
+								text: ":heavy_plus_sign: Add to cart",
+								emoji: true
+							},
+							value: "increase-to-cart-" + shopItem[0],
+							action_id: "increase-to-cart-" + shopItem[0]
+						}
+					])
+				},
+				{
+					type: "divider"
+				}
+			]).flat()),
+			{
+				type: "section",
+				text: {
+					type: "mrkdwn",
+					text: "Total Cost: " + Object.entries(CDraqula.shopping[user]).reduce((a, b) => a + (b[1] * Object.fromEntries(shopItems)[b[0]][1]), 0) + " :count-draqula:"
+				}
+			},
+			{
+				type: "actions",
+				elements: [
+					{
+						type: "button",
+						text: {
+							type: "plain_text",
+							text: ":x: Cancel Shopping",
+							emoji: true
+						},
+						value: "cancel",
+						action_id: "cancel"
+					},
+					{
+						type: "button",
+						text: {
+							type: "plain_text",
+							text: ":moneybag: Buy!",
+							emoji: true
+						},
+						value: "confirm",
+						action_id: "confirm-buy-items"
+					}
+				]
+			}
+		]
+	});
+	saveState(CDraqula);
+});
 
 app.action("confirm-buy-items", async ({ ack }) => await ack());
 
