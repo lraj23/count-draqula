@@ -1056,7 +1056,7 @@ app.action("confirm-buy-items", async ({ ack, body: { user: { id: user }, channe
 	saveState(CDraqula);
 });
 
-app.command("/cdraqula-help", async ({ ack, respond, payload: { user_id } }) => [await ack(), await respond("This bot helps you count in #counttoamillionnomistakes and more! _More to be written eventually..._"), user_id === lraj23UserId ? await respond("Test but only for <@" + lraj23UserId + ">. If you aren't him and you see this message, DM him IMMEDIATELY about this!") : null]);
+app.command("/cdraqula-help", async ({ ack, respond, payload: { user_id } }) => [await ack(), await respond("This bot helps you count in #counttoamillionnomistakes and more! You can also jumpscare people or become an admin to help manage the channel, especially in cases of bugs.\nFor more information, check out the readme at https://github.com/lraj23/count-draqula"), user_id === lraj23UserId ? await respond("Test but only for <@" + lraj23UserId + ">. If you aren't him and you see this message, DM him IMMEDIATELY about this!") : null]);
 
 app.message(/secret button/i, async ({ message: { channel, user, thread_ts, ts } }) => await app.client.chat.postEphemeral({
 	channel, user,
