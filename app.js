@@ -7,7 +7,7 @@ const msgIsNum = msg => (msg ? parseInt(msg.split(" ")[0]).toString() === msg.sp
 const numInMsg = msg => msgIsNum(msg) ? parseInt(msg.split(" ")[0]) : NaN;
 
 app.message("", async ({ message: { text, user, channel, ts } }) => {
-	if (![lraj23BotTestingId].includes(channel)) return;
+	if (![countToAMillionNoMistakesId].includes(channel)) return;
 	let CDraqula = getCDraqula();
 	const react = async (name, timestamp) => {
 		try {
@@ -271,18 +271,29 @@ app.command("/cdraqula-admin", async ({ ack, body: { user_id }, respond }) => {
 	});
 });
 
-app.action("jumpscare", async ({ ack, body: { user: { id } }, respond }) => {
+const jumpscare = async ({ ack, body: { user: { id: user }, channel: { id: channel } }, respond }) => {
 	await ack();
 	let CDraqula = getCDraqula();
-	const alreadyJumpscare = CDraqula.jumpscares.find(jumpscare => jumpscare[1] === id);
-	await respond(alreadyJumpscare ? {
-		text: "You can't jumpscare someone right now, since you are already jumpscaring <@" + alreadyJumpscare[0] + ">... However, you can cancel this jumpscare!",
+	const alreadyJumpscares = CDraqula.jumpscares.filter(jumpscare => jumpscare[1] === user);
+	await respond(alreadyJumpscares.length ? {
+		channel,
+		user,
+		text: "Choose someone to jumpscare: :tan-jumpscare:\nJust so you know, you're currently jumpscaring: " + alreadyJumpscares.map(scare => "<@" + scare[0] + ">").join("; ") + ".",
 		blocks: [
 			{
 				type: "section",
 				text: {
 					type: "mrkdwn",
-					text: "You can't jumpscare someone right now, since you are already jumpscaring <@" + alreadyJumpscare[0] + ">... However, you can cancel this jumpscare!"
+					text: "Choose someone to jumpscare: :tan-jumpscare:\nJust so you know, you're currently jumpscaring: " + alreadyJumpscares.map(scare => "<@" + scare[0] + ">").join("; ") + "."
+				},
+				accessory: {
+					type: "users_select",
+					placeholder: {
+						type: "plain_text",
+						text: "Choose someone",
+						emoji: true
+					},
+					action_id: "ignore-jumpscare"
 				}
 			},
 			{
@@ -301,15 +312,26 @@ app.action("jumpscare", async ({ ack, body: { user: { id } }, respond }) => {
 						type: "button",
 						text: {
 							type: "plain_text",
-							text: ":fear: Cancel Jumpscare"
+							text: ":fear: Cancel All Active Jumpscares"
 						},
 						value: "confirm",
 						action_id: "confirm-cancel-jumpscare"
+					},
+					{
+						type: "button",
+						text: {
+							type: "plain_text",
+							text: ":tan-jumpscare: Jumpscare"
+						},
+						value: "confirm",
+						action_id: "confirm-jumpscare"
 					}
 				]
 			}
 		]
 	} : {
+		channel,
+		user,
 		text: "Choose someone to jumpscare: :tan-jumpscare:",
 		blocks: [
 			{
@@ -353,15 +375,16 @@ app.action("jumpscare", async ({ ack, body: { user: { id } }, respond }) => {
 			}
 		]
 	});
-});
+};
+app.action("jumpscare", jumpscare);
 
 app.action("confirm-cancel-jumpscare", async ({ ack, body: { user: { id } }, respond }) => {
 	await ack();
 	let CDraqula = getCDraqula();
-	const alreadyJumpscare = CDraqula.jumpscares.find(jumpscare => jumpscare[1] === id);
-	if (!alreadyJumpscare) return await respond("You don't have a pending jumpscare...");
-	await respond("The next time <@" + alreadyJumpscare[0] + "> counts, you will no longer jumpscare them! :tan-jumpscare:");
-	CDraqula.jumpscares.splice(CDraqula.jumpscares.indexOf(alreadyJumpscare), 1);
+	const alreadyJumpscares = CDraqula.jumpscares.filter(jumpscare => jumpscare[1] === id);
+	if (!alreadyJumpscares.length) return await respond("You don't have a pending jumpscare...");
+	await respond("The next time any of this list: " + alreadyJumpscares.map(scare => "<@" + scare[0] + ">").join("; ") + " counts, you will no longer jumpscare them! :tan-jumpscare: ");
+	alreadyJumpscares.forEach(scare => CDraqula.jumpscares.splice(CDraqula.jumpscares.indexOf(scare), 1));
 	saveState(CDraqula);
 });
 
@@ -625,16 +648,16 @@ app.action("confirm-request-override", async ({ ack, respond, body: { state: { v
 	});
 });
 
+const shopItems = Object.entries({
+	jumpscare: ["Jumpscare someone :rubbinghands:", 3],
+	test: ["Test item!", 0],
+	"admin-privileges": ["Become an admin :adminabooz:", 100]
+});
 app.command("/cdraqula-shop", async ({ ack, respond, payload: { user_id } }) => {
 	await ack();
 	let CDraqula = getCDraqula();
 	if (user_id !== lraj23UserId) return await respond("Sorry, this is still in development...");
 	if (!CDraqula.coins[user_id]) CDraqula.coins[user_id] = 0;
-	const shopItems = Object.entries({
-		jumpscare: ["Jumpscare someone :rubbinghands:", 3],
-		test: ["Test item!", 0],
-		"admin-privileges": ["Become an admin :adminabooz:", 5]
-	});
 	CDraqula.shopping[user_id] = Object.fromEntries(shopItems.map(item => [item[0], 0]));
 	await respond({
 		text: "Choose what you want to buy:",
@@ -717,11 +740,6 @@ app.action(/^increase-to-cart-.+$/, async ({ ack, body: { user: { id: user }, ch
 	await ack();
 	let CDraqula = getCDraqula();
 	const item = action_id.slice(17);
-	const shopItems = Object.entries({
-		jumpscare: ["Jumpscare someone :rubbinghands:", 3],
-		test: ["Test item!", 0],
-		"admin-privileges": ["Become an admin :adminabooz:", 5]
-	});
 	console.log(item);
 	if (!CDraqula.coins[user]) CDraqula.coins[user] = 0;
 	if (!CDraqula.shopping[user]) CDraqula.shopping[user] = Object.fromEntries(shopItems.map(item => [item[0], 0]));
@@ -831,16 +849,11 @@ app.action(/^decrease-from-cart-.+$/, async ({ ack, body: { user: { id: user }, 
 	await ack();
 	let CDraqula = getCDraqula();
 	const item = action_id.slice(19);
-	const shopItems = Object.entries({
-		jumpscare: ["Jumpscare someone :rubbinghands:", 3],
-		test: ["Test item!", 0],
-		"admin-privileges": ["Become an admin :adminabooz:", 5]
-	});
 	console.log(item);
 	if (!CDraqula.coins[user]) CDraqula.coins[user] = 0;
 	if (!CDraqula.shopping[user]) CDraqula.shopping[user] = Object.fromEntries(shopItems.map(item => [item[0], 0]));
 	if (!CDraqula.shopping[user][item]) CDraqula.shopping[user][item] = 0;
-	CDraqula.shopping[user][item]--;
+	if (CDraqula.shopping[user][item] > 0) CDraqula.shopping[user][item]--;
 
 	await respond({
 		channel,
@@ -941,7 +954,66 @@ app.action(/^decrease-from-cart-.+$/, async ({ ack, body: { user: { id: user }, 
 	saveState(CDraqula);
 });
 
-app.action("confirm-buy-items", async ({ ack }) => await ack());
+app.action("confirm-buy-items", async ({ ack, body: { user: { id: user }, channel: { id: channel } }, respond }) => {
+	await ack();
+	let CDraqula = getCDraqula();
+	console.log(CDraqula.shopping[user]);
+	if (!CDraqula.shopping[user]) CDraqula.shopping[user] = Object.fromEntries(shopItems.map(item => [item[0], 0]));
+	if (!CDraqula.coins[user]) CDraqula.coins[user] = 0;
+
+	const shopped = Object.entries(CDraqula.shopping[user]);
+	const price = Object.entries(CDraqula.shopping[user]).reduce((a, b) => a + (b[1] * Object.fromEntries(shopItems)[b[0]][1]), 0);
+	if (price > CDraqula.coins[user]) return await app.client.chat.postEphemeral({
+		channel,
+		user,
+		text: "You can't buy this because the total cost is " + price + " :count-draqula:, and you only have " + CDraqula.coins[user] + " :count-draqula:!",
+		blocks: [
+			{
+				type: "section",
+				text: {
+					type: "mrkdwn",
+					text: "You can't buy this because the total cost is " + price + " :count-draqula:, and you only have " + CDraqula.coins[user] + " :count-draqula:!"
+				},
+				accessory: {
+					type: "button",
+					text: {
+						type: "plain_text",
+						text: "Close"
+					},
+					value: "close",
+					action_id: "cancel"
+				}
+			}
+		]
+	});
+	CDraqula.coins[user] -= price;
+	shopped.forEach(product => {
+		console.log(product[0], product[1], Object.fromEntries(shopItems)[product[0]][1]);
+		switch (product[0]) {
+			case "jumpscare":
+				console.log("jumpscares");
+				for (let i = 0; i < product[1]; i++) {
+					jumpscare({
+						ack: async _ => null,
+						body: {
+							user: {
+								id: user
+							},
+							channel: {
+								id: channel
+							}
+						},
+						respond: app.client.chat.postEphemeral
+					});
+				}
+				break;
+			default:
+				console.log("not jumpscares");
+		}
+	});
+	respond("Success! You spent " + price + " :count-draqula:, so you now have only " + CDraqula.coins[user] + " :count-draqula:");
+	saveState(CDraqula);
+});
 
 app.command("/cdraqula-help", async ({ ack, respond, payload: { user_id } }) => [await ack(), await respond("This bot helps you count in #counttoamillionnomistakes and more! _More to be written eventually..._"), user_id === lraj23UserId ? await respond("Test but only for <@" + lraj23UserId + ">. If you aren't him and you see this message, DM him IMMEDIATELY about this!") : null]);
 
