@@ -31,6 +31,8 @@ app.message("", async ({ message: { text, user, channel, ts } }) => {
 		}
 		CDraqula.next++;
 		CDraqula.lastCounted = user;
+		if (!CDraqula.coins[user]) CDraqula.coins[user] = 0;
+		CDraqula.coins[user]++;
 		await react("white_check_mark", ts);
 		const curJumpscare = CDraqula.jumpscares.find(jumpscare => jumpscare[0] === user);
 		if (curJumpscare) {
@@ -186,14 +188,6 @@ app.command("/cdraqula-admin", async ({ ack, body: { user_id }, respond }) => {
 							text: ":count-draqula: Override counting number"
 						},
 						action_id: "override"
-					},
-					{
-						type: "button",
-						text: {
-							type: "plain_text",
-							text: ":rubbinghands: Jumpscare someone"
-						},
-						action_id: "jumpscare"
 					},
 					{
 						type: "button",
@@ -425,7 +419,9 @@ app.action("confirm-jumpscare", async ({ ack, body: { user: { id: user }, channe
 	saveState(CDraqula);
 });
 
-app.action("add-admin", async ({ ack, respond }) => [await ack(), await respond({
+const addAdmin = async ({ ack, body: { user: { id: user }, channel: { id: channel } }, respond }) => [await ack(), await respond({
+	channel,
+	user,
 	text: "Choose someone to make admin:",
 	blocks: [
 		{
@@ -470,7 +466,8 @@ app.action("add-admin", async ({ ack, respond }) => [await ack(), await respond(
 			]
 		}
 	]
-})]);
+})];
+app.action("add-admin", addAdmin);
 
 app.action("confirm-add-admin", async ({ ack, body: { user: { id: user }, channel: { id: channel }, state: { values } }, respond }) => {
 	await ack();
@@ -656,7 +653,6 @@ const shopItems = Object.entries({
 app.command("/cdraqula-shop", async ({ ack, respond, payload: { user_id } }) => {
 	await ack();
 	let CDraqula = getCDraqula();
-	if (user_id !== lraj23UserId) return await respond("Sorry, this is still in development...");
 	if (!CDraqula.coins[user_id]) CDraqula.coins[user_id] = 0;
 	CDraqula.shopping[user_id] = Object.fromEntries(shopItems.map(item => [item[0], 0]));
 	await respond({
@@ -987,13 +983,13 @@ app.action("confirm-buy-items", async ({ ack, body: { user: { id: user }, channe
 		]
 	});
 	CDraqula.coins[user] -= price;
-	shopped.forEach(product => {
+	shopped.forEach(async product => {
 		console.log(product[0], product[1], Object.fromEntries(shopItems)[product[0]][1]);
 		switch (product[0]) {
 			case "jumpscare":
 				console.log("jumpscares");
 				for (let i = 0; i < product[1]; i++) {
-					jumpscare({
+					await jumpscare({
 						ack: async _ => null,
 						body: {
 							user: {
@@ -1007,8 +1003,53 @@ app.action("confirm-buy-items", async ({ ack, body: { user: { id: user }, channe
 					});
 				}
 				break;
+			case "test":
+				console.log("test item");
+				for (let i = 0; i < product[1]; i++) {
+					await app.client.chat.postEphemeral({
+						channel,
+						user,
+						text: "I don't know what you were looking for, but, like, here's a test message. :loll:"
+					});
+				}
+				break;
+			case "admin-privileges":
+				console.log("admin");
+				if ((CDraqula.admins.includes(user)) && (product[1] > 0)) await app.client.chat.postEphemeral({
+					channel,
+					user,
+					text: "You just wasted hundreds, literally, of :count-draqula: on something you could already do from the admin panel (/cdraqula-admin) :loll:"
+				});
+				for (let i = 0; i < product[1]; i++) {
+					if ((i === 0) && (!CDraqula.admins.includes(user))) {
+						CDraqula.admins.push(user);
+						await app.client.chat.postEphemeral({
+							channel,
+							user,
+							text: "You're now an admin! :tada:"
+						});
+						await app.client.chat.postMessage({
+							channel,
+							text: "<@" + user + "> made themself an admin by purchasing it from the shop (/cdraqula-shop) for 100 :count-draqula:"
+						});
+					} else {
+						await addAdmin({
+							ack: async _ => null,
+							body: {
+								user: {
+									id: user
+								},
+								channel: {
+									id: channel
+								}
+							},
+							respond: app.client.chat.postEphemeral
+						});
+					}
+				}
+				break;
 			default:
-				console.log("not jumpscares");
+				console.log("idk what is happening");
 		}
 	});
 	respond("Success! You spent " + price + " :count-draqula:, so you now have only " + CDraqula.coins[user] + " :count-draqula:");
