@@ -37,7 +37,6 @@ app.message("", async ({ message: { text, user, channel, ts } }) => {
 		const curJumpscare = CDraqula.jumpscares.find(jumpscare => jumpscare[0] === user);
 		if (curJumpscare) {
 			console.log("jumpscare");
-			await react("fear", ts);
 			await app.client.chat.postEphemeral({
 				channel,
 				user,
@@ -57,6 +56,7 @@ app.message("", async ({ message: { text, user, channel, ts } }) => {
 					}
 				]
 			});
+			await react("fear", ts);
 			CDraqula.jumpscares.splice(CDraqula.jumpscares.indexOf(curJumpscare), 1);
 		}
 	} else {
@@ -585,6 +585,7 @@ app.action("confirm-remove-admin", async ({ ack, body: { user: { id: user }, cha
 	});
 
 	if (removed === null) return await warn("Choose someone to remove from admin!");
+	if (!CDraqula.admins.includes(user)) return await respond("Really? You aren't an admin!");
 	if (!CDraqula.admins.includes(removed)) return await warn("<@" + removed + "> isn't an admin!");
 	if (removed === lraj23UserId) {
 		if (user !== lraj23UserId) CDraqula.admins.splice(CDraqula.admins.indexOf(user), 1);
