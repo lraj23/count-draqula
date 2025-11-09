@@ -3,10 +3,33 @@ import { getCDraqula, saveState } from "./datahandler.js";
 const lraj23UserId = "U0947SL6AKB";
 const lraj23BotTestingId = "C09GR27104V";
 const countToAMillionNoMistakesId = "CQ8G37TSL";
+const gPortfolioDmId = "D09SKN5LLF2";
+const commands = {};
 const msgIsNum = msg => (msg ? parseInt(msg.split(" ")[0]).toString() === msg.split(" ")[0] : false);
 const numInMsg = msg => msgIsNum(msg) ? parseInt(msg.split(" ")[0]) : NaN;
 
-app.message("", async ({ message: { text, user, channel, ts } }) => {
+app.message("", async ({ message: { text, user, channel, ts, channel_type } }) => {
+	if ((channel_type === "im") && (channel === gPortfolioDmId)) {
+		const info = text.split(";");
+		console.log(info[0], commands[info[0]]);
+		return commands[info[0]]({
+			ack: _ => _,
+			body: {
+				user_id: info[1],
+				channel_id: info[2]
+			},
+			respond: (response) => {
+				if (typeof response === "string") return app.client.chat.postEphemeral({
+					channel: info[2],
+					user: info[1],
+					text: response
+				});
+				if (!response.channel) response.channel = info[2];
+				if (!response.user) response.user = info[1];
+				app.client.chat.postEphemeral(response);
+			}
+		});
+	}
 	if (![countToAMillionNoMistakesId].includes(channel)) return;
 	let CDraqula = getCDraqula();
 	const react = async (name, timestamp) => {
@@ -165,10 +188,10 @@ app.action("confirm", async ({ ack, respond, body: { state: { values }, user: { 
 	saveState(CDraqula);
 });
 
-app.command("/cdraqula-admin", async ({ ack, body: { user_id }, respond }) => {
+commands.admin = async ({ ack, body: { user_id: user, channel_id: channel }, respond }) => {
 	await ack();
 	let CDraqula = getCDraqula();
-	await respond(CDraqula.admins.includes(user_id) ? {
+	await respond(CDraqula.admins.includes(user) ? {
 		text: "Admin panel:",
 		blocks: [
 			{
@@ -263,7 +286,8 @@ app.command("/cdraqula-admin", async ({ ack, body: { user_id }, respond }) => {
 			}
 		]
 	});
-});
+};
+app.command("/cdraqula-admin", commands.admin);
 
 const jumpscare = async ({ ack, body: { user: { id: user }, channel: { id: channel } }, respond }) => {
 	await ack();
@@ -649,13 +673,13 @@ app.action("confirm-request-override", async ({ ack, respond, body: { state: { v
 const shopItems = Object.entries({
 	jumpscare: ["Jumpscare someone :rubbinghands:", 3],
 	test: ["Test item!", 0],
-	"admin-privileges": ["Become an admin :adminabooz:", 100]
+	"admin-privileges": ["Become an admin :adminabooz:", 200]
 });
-app.command("/cdraqula-shop", async ({ ack, respond, payload: { user_id } }) => {
+commands.shop = async ({ ack, body: { user_id: user }, respond }) => {
 	await ack();
 	let CDraqula = getCDraqula();
-	if (!CDraqula.coins[user_id]) CDraqula.coins[user_id] = 0;
-	CDraqula.shopping[user_id] = Object.fromEntries(shopItems.map(item => [item[0], 0]));
+	if (!CDraqula.coins[user]) CDraqula.coins[user] = 0;
+	CDraqula.shopping[user] = Object.fromEntries(shopItems.map(item => [item[0], 0]));
 	await respond({
 		text: "Choose what you want to buy:",
 		blocks: [
@@ -663,7 +687,7 @@ app.command("/cdraqula-shop", async ({ ack, respond, payload: { user_id } }) => 
 				type: "section",
 				text: {
 					type: "mrkdwn",
-					text: "*Choose what items you want to buy* (you have " + CDraqula.coins[user_id] + " :count-draqula:):"
+					text: "*Choose what items you want to buy* (you have " + CDraqula.coins[user] + " :count-draqula:):"
 				}
 			},
 			{
@@ -731,7 +755,8 @@ app.command("/cdraqula-shop", async ({ ack, respond, payload: { user_id } }) => 
 		]
 	});
 	saveState(CDraqula);
-});
+};
+app.command("/cdraqula-shop", commands.shop);
 
 app.action(/^increase-to-cart-.+$/, async ({ ack, body: { user: { id: user }, channel: { id: channel } }, respond, action: { action_id } }) => {
 	await ack();
@@ -1057,7 +1082,8 @@ app.action("confirm-buy-items", async ({ ack, body: { user: { id: user }, channe
 	saveState(CDraqula);
 });
 
-app.command("/cdraqula-help", async ({ ack, respond, payload: { user_id } }) => [await ack(), await respond("This bot helps you count in #counttoamillionnomistakes and more! You can also jumpscare people or become an admin to help manage the channel, especially in cases of bugs.\nFor more information, check out the readme at https://github.com/lraj23/count-draqula"), user_id === lraj23UserId ? await respond("Test but only for <@" + lraj23UserId + ">. If you aren't him and you see this message, DM him IMMEDIATELY about this!") : null]);
+commands.help = async ({ ack, body: { user_id: user }, respond }) => [await ack(), await respond("This bot helps you count in #counttoamillionnomistakes and more! You can also jumpscare people or become an admin to help manage the channel, especially in cases of bugs.\nFor more information, check out the readme at https://github.com/lraj23/count-draqula"), user === lraj23UserId ? await respond("Test but only for <@" + lraj23UserId + ">. If you aren't him and you see this message, DM him IMMEDIATELY about this!") : null];
+app.command("/cdraqula-help", commands.help);
 
 app.message(/secret button/i, async ({ message: { channel, user, thread_ts, ts } }) => await app.client.chat.postEphemeral({
 	channel, user,
