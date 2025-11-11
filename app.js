@@ -8,7 +8,8 @@ const commands = {};
 const msgIsNum = msg => (msg ? parseInt(msg.split(" ")[0]).toString() === msg.split(" ")[0] : false);
 const numInMsg = msg => msgIsNum(msg) ? parseInt(msg.split(" ")[0]) : NaN;
 
-app.message("", async ({ message: { text, user, channel, ts, channel_type } }) => {
+app.message("", async (event) => {
+	const { message: { text, channel, channel_type } } = event;
 	if ((channel_type === "im") && (channel === gPortfolioDmId)) {
 		const info = text.split(";");
 		console.log(info[0], commands[info[0]]);
@@ -30,7 +31,16 @@ app.message("", async ({ message: { text, user, channel, ts, channel_type } }) =
 			}
 		});
 	}
-	if (![countToAMillionNoMistakesId].includes(channel)) return;
+	if (![countToAMillionNoMistakesId, lraj23BotTestingId].includes(channel)) return;
+	if (!msgIsNum(text)) {
+		return console.log("not a number!");
+	}
+	const received_ts = Date.now();
+	eventQueue.push({ ...event, received_ts });
+	console.log(received_ts, text);
+});
+
+async function handleCounting({ message: { text, user, channel, ts } }) {
 	let CDraqula = getCDraqula();
 	const react = async (name, timestamp) => {
 		try {
@@ -39,9 +49,6 @@ app.message("", async ({ message: { text, user, channel, ts, channel_type } }) =
 			console.error(e.data.error);
 		}
 	};
-	if (!msgIsNum(text)) {
-		return console.log("not a number!");
-	}
 	const counted = numInMsg(text);
 	if (counted === CDraqula.next) {
 		console.log("correct!");
@@ -92,7 +99,7 @@ app.message("", async ({ message: { text, user, channel, ts, channel_type } }) =
 	}
 	console.log(counted, CDraqula.next);
 	saveState(CDraqula);
-});
+}
 
 app.action("override", async ({ ack, respond }) => [await ack(), await respond({
 	text: "Choose a number to set it to:",
@@ -1141,3 +1148,23 @@ app.action("button_click", async ({ body: { channel: { id: cId }, user: { id: uI
 		}
 	]
 })]);
+
+const eventQueue = [];
+async function countingTask() {
+	while (true) {
+		while (!eventQueue.length) {
+			await new Promise(resolve => setTimeout(resolve, 10));
+		}
+		// wait 1s after the first event was received
+		const firstTs = eventQueue.map(e => e.received_ts).reduce((a, b) => Math.min(a, b), Number.MAX_VALUE);
+		if (Date.now() - firstTs < 1000) {
+			await new Promise(resolve => setTimeout(resolve, 10));
+			continue;
+		}
+		eventQueue.sort((a, b) => Number(a.message.ts) - Number(b.message.ts));
+		const earliestEvent = eventQueue[0];
+		eventQueue.splice(0, 1);
+		await handleCounting(earliestEvent);
+	}
+}
+countingTask();
