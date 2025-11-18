@@ -8,8 +8,7 @@ const commands = {};
 const msgIsNum = msg => (msg ? parseInt(msg.split(" ")[0]).toString() === msg.split(" ")[0] : false);
 const numInMsg = msg => msgIsNum(msg) ? parseInt(msg.split(" ")[0]) : NaN;
 
-app.message("", async (event) => {
-	const { message: { text, channel, channel_type } } = event;
+app.message("", async ({ message: { text, user, channel, ts, thread_ts, channel_type } }) => {
 	if ((channel_type === "im") && (channel === gPortfolioDmId)) {
 		const info = text.split(";");
 		console.log(info[0], commands[info[0]]);
@@ -32,11 +31,11 @@ app.message("", async (event) => {
 		});
 	}
 	if (![countToAMillionNoMistakesId, lraj23BotTestingId].includes(channel)) return;
-	if (!msgIsNum(text)) {
+	if ((!msgIsNum(text) || (thread_ts))) {
 		return console.log("not a number!");
 	}
 	const received_ts = Date.now();
-	eventQueue.push({ ...event, received_ts });
+	eventQueue.push({ message: { text, user, channel, ts, thread_ts, channel_type }, received_ts });
 	console.log(received_ts, text);
 });
 
@@ -189,7 +188,7 @@ app.action("confirm", async ({ ack, respond, body: { state: { values }, user: { 
 
 	await respond("Success! Continue counting from " + override + "...");
 	await app.client.chat.postMessage({
-		channel,
+		channel: countToAMillionNoMistakesId,
 		text: "The next number was overriden by <@" + user + ">! Continue counting with " + override + "..."
 	});
 	saveState(CDraqula);
@@ -1155,9 +1154,9 @@ async function countingTask() {
 		while (!eventQueue.length) {
 			await new Promise(resolve => setTimeout(resolve, 10));
 		}
-		// wait 1s after the first event was received
+		// wait 3s after the first event was received
 		const firstTs = eventQueue.map(e => e.received_ts).reduce((a, b) => Math.min(a, b), Number.MAX_VALUE);
-		if (Date.now() - firstTs < 1000) {
+		if (Date.now() - firstTs < 3000) {
 			await new Promise(resolve => setTimeout(resolve, 10));
 			continue;
 		}
