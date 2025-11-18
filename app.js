@@ -8,8 +8,7 @@ const commands = {};
 const msgIsNum = msg => (msg ? parseInt(msg.split(" ")[0]).toString() === msg.split(" ")[0] : false);
 const numInMsg = msg => msgIsNum(msg) ? parseInt(msg.split(" ")[0]) : NaN;
 
-app.message("", async (event) => {
-	const { message: { text, channel, channel_type } } = event;
+app.message("", async ({ message: { text, user, channel, ts, thread_ts, channel_type } }) => {
 	if ((channel_type === "im") && (channel === gPortfolioDmId)) {
 		const info = text.split(";");
 		console.log(info[0], commands[info[0]]);
@@ -33,7 +32,7 @@ app.message("", async (event) => {
 	}
 	if (![countToAMillionNoMistakesId, lraj23BotTestingId].includes(channel)) return;
 	const received_ts = Date.now();
-	eventQueue.push({ ...event, received_ts });
+	eventQueue.push({ message: { text, user, channel, ts, thread_ts, channel_type }, received_ts });
 	console.log(received_ts, text);
 });
 
@@ -186,7 +185,7 @@ app.action("confirm", async ({ ack, respond, body: { state: { values }, user: { 
 
 	await respond("Success! Continue counting from " + override + "...");
 	await app.client.chat.postMessage({
-		channel,
+		channel: countToAMillionNoMistakesId,
 		text: "The next number was overriden by <@" + user + ">! Continue counting with " + override + "..."
 	});
 	saveState(CDraqula);
