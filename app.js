@@ -31,9 +31,6 @@ app.message("", async ({ message: { text, user, channel, ts, thread_ts, channel_
 		});
 	}
 	if (![countToAMillionNoMistakesId, lraj23BotTestingId].includes(channel)) return;
-	if ((!msgIsNum(text) || (thread_ts))) {
-		return console.log("not a number!");
-	}
 	const received_ts = Date.now();
 	eventQueue.push({ message: { text, user, channel, ts, thread_ts, channel_type }, received_ts });
 	console.log(received_ts, text);
@@ -1154,16 +1151,51 @@ async function countingTask() {
 		while (!eventQueue.length) {
 			await new Promise(resolve => setTimeout(resolve, 10));
 		}
-		// wait 3s after the first event was received
-		const firstTs = eventQueue.map(e => e.received_ts).reduce((a, b) => Math.min(a, b), Number.MAX_VALUE);
-		if (Date.now() - firstTs < 3000) {
-			await new Promise(resolve => setTimeout(resolve, 10));
+		const CDraqula = getCDraqula();
+		const { channel, ts } = eventQueue.shift().message;
+		// this should only happen on migration so it's a bit fuzzy, its ok
+		if (!CDraqula.lastMessage) {
+			CDraqula.lastMessage = { [channel]: ts };
+			saveState(CDraqula);
 			continue;
 		}
-		eventQueue.sort((a, b) => Number(a.message.ts) - Number(b.message.ts));
-		const earliestEvent = eventQueue[0];
-		eventQueue.splice(0, 1);
-		await handleCounting(earliestEvent);
+		if (!CDraqula.lastMessage[channel]) {
+			CDraqula.lastMessage[channel] = ts;
+			saveState(CDraqula);
+			continue;
+		}
+
+		// can't trust events :(
+		const allMessages = [];
+		let hasMore = true;
+		let oldest = CDraqula.lastMessage[channel];
+		if (Number(oldest) >= Number(ts)) {
+			// we got this message already, skip
+			continue;
+		}
+		do {
+			const { messages, has_more } = await app.client.conversations.history({
+				channel,
+				oldest,
+				limit: 100,
+			});
+			allMessages.push(...messages);
+			hasMore = has_more;
+			oldest = messages.reduce((oldest, { ts }) => Number(ts) > Number(oldest) ? ts : oldest, oldest);
+		} while (hasMore);
+		allMessages.sort((a, b) => Number(a.ts) - Number(b.ts));
+
+		for (const message of allMessages) {
+			if (!msgIsNum(message.text)) {
+				console.log("not a number!");
+			} else {
+				await handleCounting({ message: { ...message, channel } });
+			}
+			// re-read state because handleCounting mutates it
+			const CDraqula = getCDraqula();
+			CDraqula.lastMessage[channel] = message.ts;
+			saveState(CDraqula);
+		}
 	}
 }
 countingTask();
