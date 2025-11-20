@@ -1186,7 +1186,7 @@ async function countingTask() {
 		allMessages.sort((a, b) => Number(a.ts) - Number(b.ts));
 
 		for (const message of allMessages) {
-			if (!msgIsNum(message.text)) {
+			if ((!msgIsNum(message.text)) || (message.thread_ts)) {
 				console.log("not a number!");
 			} else {
 				await handleCounting({ message: { ...message, channel } });
